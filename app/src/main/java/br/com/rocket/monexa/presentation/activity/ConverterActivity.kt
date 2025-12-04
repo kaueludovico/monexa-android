@@ -74,19 +74,16 @@ class ConverterActivity : AppCompatActivity() {
 
     private fun configBotaoConverter() {
         binding.btnConverter.setOnClickListener {
-            // Pega as moedas selecionadas
             val from = binding.spMoedaOrigem.selectedItem.toString()
             val to = binding.spMoedaDestino.selectedItem.toString()
 
-            // Pega o valor digitado
             val value = binding.etValor.text.toString().toDoubleOrNull() ?: return@setOnClickListener
 
-            // Pega a data do DatePicker se o switch estiver desligado
             val date = if (binding.swHoje.isChecked) {
                 null
             } else {
                 val day = binding.datePicker.dayOfMonth
-                val month = binding.datePicker.month // Janeiro = 0
+                val month = binding.datePicker.month
                 val year = binding.datePicker.year
 
                 val calendar = java.util.Calendar.getInstance()
@@ -96,7 +93,6 @@ class ConverterActivity : AppCompatActivity() {
                 formatDate(calendar.timeInMillis)
             }
 
-            // Chama o ViewModel para converter
             viewModel.convert(from, to, value, date)
         }
 
