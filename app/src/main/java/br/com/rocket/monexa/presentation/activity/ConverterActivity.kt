@@ -1,29 +1,23 @@
 package br.com.rocket.monexa.presentation.activity
 
-import android.R
-import android.app.AlertDialog
+import android.annotation.SuppressLint
+import android.icu.text.SimpleDateFormat
+import android.icu.util.TimeZone
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.Toast
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
-import br.com.rocket.monexa.databinding.ActivityConverterBinding
-import br.com.rocket.monexa.presentation.viewmodel.ConverterViewModel
-
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import br.com.rocket.monexa.data.mapper.CurrencyMapper
-import br.com.rocket.monexa.data.repository.CurrencyListRepositoryImpl
-import br.com.rocket.monexa.data.repository.CurrencyRepositoryImpl
-import br.com.rocket.monexa.di.AppModule
-import br.com.rocket.monexa.domain.usecase.CurrencyConversionUseCase
-import br.com.rocket.monexa.domain.usecase.GetCurrencyListUseCase
-import kotlinx.coroutines.flow.collectLatest
+import br.com.rocket.monexa.databinding.ActivityConverterBinding
+import br.com.rocket.monexa.presentation.viewmodel.ConverterViewModel
+import br.com.rocket.monexa.presentation.viewmodel.CurrencyUiState
 import kotlinx.coroutines.launch
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -31,72 +25,95 @@ import java.util.Locale
 class ConverterActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityConverterBinding
-    private val currencyRepositoryList = CurrencyListRepositoryImpl(AppModule.currencyApi)
-    private val currencyConversionUseCase = CurrencyConversionUseCase(
-        CurrencyRepositoryImpl(AppModule.currencyApi)
-    )
-    private val getCurrencyListUseCase = GetCurrencyListUseCase(currencyRepositoryList)
-    private val viewModel: ConverterViewModel by viewModels {
-        ConverterViewModel.ConverterViewModelFactory(
-            currencyConversionUseCase,
-            getCurrencyListUseCase
-        )
-    }
+    private val viewModel: ConverterViewModel by viewModel()
+
+    private var currenciesList: List<String> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityConverterBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        configSpinners()
+        setupObservers()
         configConvertButton()
-
         binding.etValor.setupCurrencyFormat()
-    }
-
-    private fun configSpinners() {
-        lifecycleScope.launch {
-            viewModel.currencies.collectLatest { list ->
-                val (baseCurrencies, allCurrencies) = CurrencyMapper.toDomain(list)
-
-                // Spinner FROM: apenas moedas G10
-                val baseSymbols = baseCurrencies.map { "${it.code} - ${it.name}" }
-                val adapterFrom = ArrayAdapter(
-                    this@ConverterActivity,
-                    R.layout.simple_spinner_item,
-                    baseSymbols
-                )
-                adapterFrom.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
-                binding.spMoedaOrigem.adapter = adapterFrom
-
-                // Spinner TO: todas as moedas
-                val allSymbols = allCurrencies.map { "${it.code} - ${it.name}" }
-                val adapterTo = ArrayAdapter(
-                    this@ConverterActivity,
-                    R.layout.simple_spinner_item,
-                    allSymbols
-                )
-                adapterTo.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
-                binding.spMoedaDestino.adapter = adapterTo
-            }
-        }
 
         viewModel.loadCurrencies()
+    }
+
+    private fun setupObservers() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    when (state) {
+                        is CurrencyUiState.Loading -> {
+                            showLoading(true)
+                        }
+
+                        is CurrencyUiState.Success -> {
+                            showLoading(false)
+                            currenciesList = state.currencies
+                            configSpinners(state.currencies)
+                        }
+
+                        is CurrencyUiState.Error -> {
+                            showLoading(false)
+                            Toast.makeText(
+                                this@ConverterActivity,
+                                state.message,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showLoading(isLoading: Boolean) {
+        binding.btnConverter.isEnabled = !isLoading
+        binding.spMoedaOrigem.isEnabled = !isLoading
+        binding.spMoedaDestino.isEnabled = !isLoading
+        binding.etValor.isEnabled = !isLoading
+    }
+
+    private fun configSpinners(currencies: List<String>) {
+        if (currencies.isEmpty()) return
+
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            currencies
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+
+        binding.spMoedaOrigem.adapter = adapter
+        binding.spMoedaDestino.adapter = adapter
+
+        val usdIndex = currencies.indexOf("USD")
+        val brlIndex = currencies.indexOf("BRL")
+
+        if (usdIndex != -1) binding.spMoedaOrigem.setSelection(usdIndex)
+        if (brlIndex != -1) binding.spMoedaDestino.setSelection(brlIndex)
     }
 
     private fun configConvertButton() {
         binding.btnConverter.setOnClickListener {
             val from = binding.spMoedaOrigem.selectedItem.toString()
             val to = binding.spMoedaDestino.selectedItem.toString()
-
             val value = binding.etValor.getCurrencyValue()
 
             if (from != to) {
-                viewModel.convert(
-                    from.substring(0, 3),
-                    to.substring(0, 3),
-                    value
-                )
+                if (value > 0) {
+                    performConversion(from, to, value)
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Por favor, insira um valor válido.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             } else {
                 Toast.makeText(
                     this,
@@ -105,17 +122,25 @@ class ConverterActivity : AppCompatActivity() {
                 ).show()
             }
         }
+    }
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.result.collect { value ->
-                    if (value != null) {
-                        alert()
-                    } else {
-                        toast()
-                    }
-                }
-            }
+    @SuppressLint("SetTextI18n", "DefaultLocale")
+    private fun performConversion(from: String, to: String, value: Double) {
+        val result = viewModel.convertCurrency(from, to, value)
+        val lastDate = viewModel.getLastUpdate()
+        val nextDate = viewModel.getNextUpdate()
+
+        if (result != null) {
+            binding.tvCodeConversion.setText("Moedas: ${from} - ${to}")
+            binding.tvValue.setText("Cotação das moedas informadas: ${String.format("%.2f", result)}")
+            binding.tvDateLatestUpdate.setText(formatLastUpdateBrazil(lastDate, "Última"))
+            binding.tvDateNextUpdate.setText(formatLastUpdateBrazil(nextDate, "Próxima"))
+        } else {
+            Toast.makeText(
+                this,
+                "Erro ao realizar conversão. Tente novamente.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -172,26 +197,20 @@ class ConverterActivity : AppCompatActivity() {
         return if (cleanString.isEmpty()) 0.0 else cleanString.toDouble() / 100.0
     }
 
-    fun alert() {
-        AlertDialog.Builder(this)
-            .setTitle("Atenção")
-            .setMessage("Operação concluída com sucesso.")
-            .setPositiveButton("OK") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .show()
-    }
+    fun formatLastUpdateBrazil(dateUtc: String?, time: String?): String {
+        return try {
+            val parserUtc = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US)
+            parserUtc.timeZone = TimeZone.getTimeZone("UTC")
 
-    fun toast() {
-        Toast.makeText(
-            this,
-            "Não é possível converter pois as duas moedas selecionadas são iguais.",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
+            val date = parserUtc.parse(dateUtc) ?: return "Data indisponível"
 
-    private fun formatDate(timeInMillis: Long): String {
-        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault())
-        return sdf.format(java.util.Date(timeInMillis))
+            val formatterBrazil = SimpleDateFormat("dd/MM/yyyy 'às' HH:mm", Locale("pt", "BR"))
+            formatterBrazil.timeZone = TimeZone.getTimeZone("America/Sao_Paulo")
+
+            "${time} atualização: ${formatterBrazil.format(date)}"
+
+        } catch (e: Exception) {
+            "Data indisponível"
+        }
     }
 }

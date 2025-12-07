@@ -3,4 +3,8 @@
     <string name="digite_o_valor">Digite o valor</string>
     <string name="quer_converter_usando_a_cota_o_de_hoje">Quer converter usando a cotação de hoje?</string>
     <string name="converter">Converter</string>
+    <string name="ltima_atualiza_o">Última atualização</string>
+    <string name="pr_xima_atualiza_o">Próxima atualização:</string>
+    <string name="cota_o_das_moedas_informadas">Cotação das moedas informadas:</string>
+    <string name="moedas">Moedas:</string>
 </resources>

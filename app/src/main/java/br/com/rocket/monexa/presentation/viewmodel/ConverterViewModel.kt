@@ -1,62 +1,60 @@
 package br.com.rocket.monexa.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import br.com.rocket.monexa.data.dto.CurrencyListResponse
-import br.com.rocket.monexa.domain.usecase.CurrencyConversionUseCase
+import br.com.rocket.monexa.domain.model.ExchangeRates
 import br.com.rocket.monexa.domain.usecase.GetCurrencyListUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class ConverterViewModel(private val useCase: CurrencyConversionUseCase,
-                         private val useCaseList: GetCurrencyListUseCase) : ViewModel() {
+class ConverterViewModel(
+    private val getCurrencyListUseCase: GetCurrencyListUseCase
+) : ViewModel() {
 
-    private val _result = MutableStateFlow<Double?>(null)
-    val result: StateFlow<Double?> get() = _result
+    private val _uiState = MutableStateFlow<CurrencyUiState>(CurrencyUiState.Loading)
+    val uiState: StateFlow<CurrencyUiState> = _uiState.asStateFlow()
 
-    private val _currencies = MutableStateFlow(
-        CurrencyListResponse(currencies = emptyList())
-    )
-    val currencies: StateFlow<CurrencyListResponse> get() = _currencies
+    private var exchangeRates: ExchangeRates? = null
 
-    fun convert(
-        from: String,
-        to: String,
-        value: Double
-    ) {
+    fun loadCurrencies(base: String? = null) {
         viewModelScope.launch {
-            try {
-                val converted = useCase.execute(from, to, value)
-                _result.value = converted
-            } catch (e: Exception) {
-                _result.value = null
-            }
+            _uiState.value = CurrencyUiState.Loading
+
+            getCurrencyListUseCase.execute(base)
+                .onSuccess { rates ->
+                    exchangeRates = rates // ← Armazena as taxas
+                    _uiState.value = CurrencyUiState.Success(rates.getCurrencyCodes())
+                }
+                .onFailure { exception ->
+                    _uiState.value = CurrencyUiState.Error(exception.message ?: "Erro")
+                }
         }
     }
 
-    fun loadCurrencies() {
-        viewModelScope.launch {
-            try {
-                val list = useCaseList.execute()
-                _currencies.value = list
-            } catch (e: Exception) {
-                _currencies.value = CurrencyListResponse(currencies = emptyList())
-            }
-        }
+    fun convertCurrency(from: String, to: String, amount: Double): Double? {
+        val rates = exchangeRates ?: return null
+
+        val fromRate = rates.getRate(from) ?: return null
+        val toRate = rates.getRate(to) ?: return null
+
+        return (amount / fromRate) * toRate
     }
 
-    class ConverterViewModelFactory(
-        private val conversionUseCase: CurrencyConversionUseCase,
-        private val listUseCase: GetCurrencyListUseCase
-    ) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(ConverterViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return ConverterViewModel(conversionUseCase, listUseCase) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
+    fun getLastUpdate(): String? {
+        val date = exchangeRates ?: return null
+        return date.getLatestUpdate()
     }
+
+    fun getNextUpdate(): String? {
+        val date = exchangeRates ?: return null
+        return date.getNextUpdate()
+    }
+}
+
+sealed class CurrencyUiState {
+    object Loading : CurrencyUiState()
+    data class Success(val currencies: List<String>) : CurrencyUiState()
+    data class Error(val message: String) : CurrencyUiState()
 }

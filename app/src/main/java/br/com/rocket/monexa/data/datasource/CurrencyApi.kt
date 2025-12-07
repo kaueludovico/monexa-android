@@ -1,18 +1,13 @@
 package br.com.rocket.monexa.data.datasource
 
-import br.com.rocket.monexa.data.dto.CurrencyListResponse
-import br.com.rocket.monexa.data.dto.CurrencyResponse
+import br.com.rocket.monexa.data.dto.CurrencyDto
 import retrofit2.http.GET
-import retrofit2.http.Query
+import retrofit2.http.Path
 
 interface CurrencyApi {
-    @GET("v2/currency/available")
-    suspend fun getCurrencies(
-        @Query("token") token: String
-    ): CurrencyListResponse
-
-    @GET("v2/currency")
+    @GET("latest/{base}")
     suspend fun getLatestRates(
-        @Query("currency") currency: String
-    ): CurrencyResponse
+        @Path("base") base: String = "USD"
+    ): CurrencyDto
 }
+
