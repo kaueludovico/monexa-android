@@ -3,7 +3,7 @@ package br.com.rocket.monexa.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import br.com.rocket.monexa.domain.model.CurrencySymbol
+import br.com.rocket.monexa.data.dto.CurrencyListResponse
 import br.com.rocket.monexa.domain.usecase.CurrencyConversionUseCase
 import br.com.rocket.monexa.domain.usecase.GetCurrencyListUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,18 +16,19 @@ class ConverterViewModel(private val useCase: CurrencyConversionUseCase,
     private val _result = MutableStateFlow<Double?>(null)
     val result: StateFlow<Double?> get() = _result
 
-    private val _currencies = MutableStateFlow<List<CurrencySymbol>>(emptyList())
-    val currencies: StateFlow<List<CurrencySymbol>> get() = _currencies
+    private val _currencies = MutableStateFlow(
+        CurrencyListResponse(currencies = emptyList())
+    )
+    val currencies: StateFlow<CurrencyListResponse> get() = _currencies
 
     fun convert(
         from: String,
         to: String,
-        value: Double,
-        date: String? = null
+        value: Double
     ) {
         viewModelScope.launch {
             try {
-                val converted = useCase.execute(from, to, value, date)
+                val converted = useCase.execute(from, to, value)
                 _result.value = converted
             } catch (e: Exception) {
                 _result.value = null
@@ -41,7 +42,7 @@ class ConverterViewModel(private val useCase: CurrencyConversionUseCase,
                 val list = useCaseList.execute()
                 _currencies.value = list
             } catch (e: Exception) {
-                _currencies.value = emptyList()
+                _currencies.value = CurrencyListResponse(currencies = emptyList())
             }
         }
     }

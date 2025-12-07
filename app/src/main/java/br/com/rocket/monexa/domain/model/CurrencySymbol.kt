@@ -1,6 +1,11 @@
 package br.com.rocket.monexa.domain.model
 
+import com.google.gson.annotations.SerializedName
+
 data class CurrencySymbol(
-    val simbolo: String,
-    val nome: String
+    @SerializedName("name")
+    val name: String,
+
+    @SerializedName("currency")
+    val currency: String
 )

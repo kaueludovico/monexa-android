@@ -5,8 +5,9 @@ import android.app.AlertDialog
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.EditText
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
@@ -15,6 +16,7 @@ import br.com.rocket.monexa.presentation.viewmodel.ConverterViewModel
 
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import br.com.rocket.monexa.data.mapper.CurrencyMapper
 import br.com.rocket.monexa.data.repository.CurrencyListRepositoryImpl
 import br.com.rocket.monexa.data.repository.CurrencyRepositoryImpl
 import br.com.rocket.monexa.di.AppModule
@@ -22,11 +24,14 @@ import br.com.rocket.monexa.domain.usecase.CurrencyConversionUseCase
 import br.com.rocket.monexa.domain.usecase.GetCurrencyListUseCase
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 
 class ConverterActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityConverterBinding
-    private val currencyRepositoryList = CurrencyListRepositoryImpl(AppModule.currencyListApi)
+    private val currencyRepositoryList = CurrencyListRepositoryImpl(AppModule.currencyApi)
     private val currencyConversionUseCase = CurrencyConversionUseCase(
         CurrencyRepositoryImpl(AppModule.currencyApi)
     )
@@ -44,56 +49,61 @@ class ConverterActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         configSpinners()
-        configSwitch()
-        configEditText()
-        configBotaoConverter()
-    }
+        configConvertButton()
 
-    private fun configSwitch() {
-        binding.btnConverter.isEnabled = true
-        val oneDayMillis = 24 * 60 * 60 * 1000
-        binding.datePicker.maxDate = System.currentTimeMillis() - oneDayMillis
-        binding.swHoje.setOnCheckedChangeListener { _, isChecked ->
-            binding.datePicker.visibility = if (isChecked) View.GONE else View.VISIBLE
-        }
+        binding.etValor.setupCurrencyFormat()
     }
 
     private fun configSpinners() {
         lifecycleScope.launch {
             viewModel.currencies.collectLatest { list ->
-                val symbols = list.map { it.simbolo }
-                val adapter = ArrayAdapter(this@ConverterActivity, R.layout.simple_spinner_item, symbols)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                binding.spMoedaOrigem.adapter = adapter
-                binding.spMoedaDestino.adapter = adapter
+                val (baseCurrencies, allCurrencies) = CurrencyMapper.toDomain(list)
+
+                // Spinner FROM: apenas moedas G10
+                val baseSymbols = baseCurrencies.map { "${it.code} - ${it.name}" }
+                val adapterFrom = ArrayAdapter(
+                    this@ConverterActivity,
+                    R.layout.simple_spinner_item,
+                    baseSymbols
+                )
+                adapterFrom.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
+                binding.spMoedaOrigem.adapter = adapterFrom
+
+                // Spinner TO: todas as moedas
+                val allSymbols = allCurrencies.map { "${it.code} - ${it.name}" }
+                val adapterTo = ArrayAdapter(
+                    this@ConverterActivity,
+                    R.layout.simple_spinner_item,
+                    allSymbols
+                )
+                adapterTo.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
+                binding.spMoedaDestino.adapter = adapterTo
             }
         }
 
         viewModel.loadCurrencies()
     }
 
-    private fun configBotaoConverter() {
+    private fun configConvertButton() {
         binding.btnConverter.setOnClickListener {
             val from = binding.spMoedaOrigem.selectedItem.toString()
             val to = binding.spMoedaDestino.selectedItem.toString()
 
-            val value = binding.etValor.text.toString().toDoubleOrNull() ?: return@setOnClickListener
+            val value = binding.etValor.getCurrencyValue()
 
-            val date = if (binding.swHoje.isChecked) {
-                null
+            if (from != to) {
+                viewModel.convert(
+                    from.substring(0, 3),
+                    to.substring(0, 3),
+                    value
+                )
             } else {
-                val day = binding.datePicker.dayOfMonth
-                val month = binding.datePicker.month
-                val year = binding.datePicker.year
-
-                val calendar = java.util.Calendar.getInstance()
-                calendar.set(year, month, day, 0, 0, 0)
-                calendar.set(java.util.Calendar.MILLISECOND, 0)
-
-                formatDate(calendar.timeInMillis)
+                Toast.makeText(
+                    this,
+                    "Não é possível converter pois as duas moedas selecionadas são iguais.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
-
-            viewModel.convert(from, to, value, date)
         }
 
         lifecycleScope.launch {
@@ -101,62 +111,65 @@ class ConverterActivity : AppCompatActivity() {
                 viewModel.result.collect { value ->
                     if (value != null) {
                         alert()
+                    } else {
+                        toast()
                     }
                 }
             }
         }
-
-
-//    viewModel.result.observe(this) { converted ->
-//        binding.tvResultado.text = converted?.toString() ?: "Erro"
-//    }
     }
 
-    private fun configEditText() {
-        binding.etValor.addTextChangedListener(object : TextWatcher {
-            private var current = ""
-            private var cursorPosition = 0
+    fun EditText.setupCurrencyFormat() {
+        val locale = Locale.GERMANY
+        val symbols = DecimalFormatSymbols(locale)
+        val formatter = DecimalFormat("#,##0.00", symbols).apply {
+            isDecimalSeparatorAlwaysShown = true
+        }
 
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                cursorPosition = binding.etValor.selectionStart
-            }
+        var isUpdating = false
 
+        this.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
 
-            override fun afterTextChanged(s: Editable?) {
-                if (s == null || s.toString() == current) return
+            override fun afterTextChanged(editable: Editable?) {
+                if (isUpdating) return
 
-                binding.etValor.removeTextChangedListener(this)
+                isUpdating = true
 
                 try {
-                    // Remove caracteres inválidos (tudo que não seja número ou ponto)
-                    var clean = s.toString().replace("[^\\d.]".toRegex(), "")
+                    val cleanString = editable.toString().replace(Regex("[^\\d]"), "")
 
-                    // Limita casas decimais
-                    val parts = clean.split(".")
-                    var intPart = parts[0].take(9) // até 9 dígitos inteiros (1 bilhão)
-                    val decimalPart = if (parts.size > 1) parts[1].take(2) else ""
+                    if (cleanString.isEmpty()) {
+                        setText("")
+                    } else {
+                        val parsed = cleanString.toLongOrNull() ?: 0L
+                        val value = parsed / 100.0
 
-                    // Formata os milhares sem inverter
-                    intPart = intPart.reversed().chunked(3).joinToString(".").reversed()
-
-                    val formatted = if (decimalPart.isNotEmpty()) "$intPart.$decimalPart" else intPart
-
-                    // Ajusta o cursor corretamente
-                    val diff = formatted.length - s.toString().length
-                    val newCursor = (cursorPosition + diff).coerceIn(0, formatted.length)
-
-                    current = formatted
-                    binding.etValor.setText(formatted)
-                    binding.etValor.setSelection(newCursor)
-
+                        if (value > 1_000_000_000.0) {
+                            val formatted = formatter.format(1_000_000_000.0)
+                            setText(formatted)
+                            setSelection(formatted.length)
+                        } else {
+                            val formatted = formatter.format(value)
+                            setText(formatted)
+                            setSelection(formatted.length)
+                        }
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
 
-                binding.etValor.addTextChangedListener(this)
+                isUpdating = false
             }
         })
+
+        inputType = android.text.InputType.TYPE_CLASS_NUMBER
+    }
+
+    fun EditText.getCurrencyValue(): Double {
+        val cleanString = text.toString().replace(Regex("[^\\d]"), "")
+        return if (cleanString.isEmpty()) 0.0 else cleanString.toDouble() / 100.0
     }
 
     fun alert() {
@@ -167,6 +180,14 @@ class ConverterActivity : AppCompatActivity() {
                 dialog.dismiss()
             }
             .show()
+    }
+
+    fun toast() {
+        Toast.makeText(
+            this,
+            "Não é possível converter pois as duas moedas selecionadas são iguais.",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun formatDate(timeInMillis: Long): String {
