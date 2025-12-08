@@ -24,7 +24,7 @@ class ConverterViewModel(
 
             getCurrencyListUseCase.execute(base)
                 .onSuccess { rates ->
-                    exchangeRates = rates // ← Armazena as taxas
+                    exchangeRates = rates
                     _uiState.value = CurrencyUiState.Success(rates.getCurrencyCodes())
                 }
                 .onFailure { exception ->

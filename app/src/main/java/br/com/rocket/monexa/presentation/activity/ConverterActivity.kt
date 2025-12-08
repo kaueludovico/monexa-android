@@ -188,7 +188,6 @@ class ConverterActivity : AppCompatActivity() {
                 isUpdating = false
             }
         })
-
         inputType = android.text.InputType.TYPE_CLASS_NUMBER
     }
 

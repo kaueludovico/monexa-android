@@ -10,30 +10,80 @@
         android:id="@+id/spMoedaOrigem"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="88dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginTop="150dp"/>
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <Spinner
-        android:id="@+id/spMoedaDestino"
-        android:layout_width="0dp"
+    <TextView
+        android:id="@+id/tvValue"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@id/spMoedaOrigem"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:text="@string/cota_o_das_moedas_informadas"
+        app:layout_constraintStart_toStartOf="@+id/tvCodeConversion"
+        app:layout_constraintTop_toBottomOf="@+id/tvCodeConversion" />
 
     <EditText
         android:id="@+id/etValor"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="36dp"
         android:hint="@string/digite_o_valor"
         android:inputType="numberDecimal"
-        app:layout_constraintTop_toTopOf="@id/spMoedaDestino"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="35dp"/>
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/spMoedaDestino" />
+
+    <TextView
+        android:id="@+id/tvCodeConversion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="44dp"
+        android:text="@string/moedas"
+        app:layout_constraintStart_toStartOf="@+id/btnConverter"
+        app:layout_constraintTop_toBottomOf="@+id/btnConverter" />
+
+    <Button
+        android:id="@+id/btnConverter"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/converter"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutSwitchHoje" />
+
+    <TextView
+        android:id="@+id/tvDateLatestUpdate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="@string/ltima_atualiza_o"
+        app:layout_constraintStart_toStartOf="@+id/tvValue"
+        app:layout_constraintTop_toBottomOf="@+id/tvValue" />
+
+    <TextView
+        android:id="@+id/tvDateNextUpdate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:text="@string/pr_xima_atualiza_o"
+        app:layout_constraintStart_toStartOf="@+id/tvDateLatestUpdate"
+        app:layout_constraintTop_toBottomOf="@+id/tvDateLatestUpdate" />
+
+    <Spinner
+        android:id="@+id/spMoedaDestino"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/spMoedaOrigem" />
 
     <LinearLayout
         android:id="@+id/layoutSwitchHoje"
@@ -46,50 +96,5 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="16dp">
     </LinearLayout>
-
-    <Button
-        android:id="@+id/btnConverter"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="@string/converter"
-        app:layout_constraintTop_toBottomOf="@id/layoutSwitchHoje"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <TextView
-        android:id="@+id/tvCodeConversion"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="48dp"
-        android:text="@string/moedas"
-        app:layout_constraintStart_toStartOf="@+id/btnConverter"
-        app:layout_constraintTop_toBottomOf="@+id/btnConverter" />
-
-    <TextView
-        android:id="@+id/tvValue"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/cota_o_das_moedas_informadas"
-        app:layout_constraintStart_toStartOf="@+id/tvCodeConversion"
-        app:layout_constraintTop_toBottomOf="@+id/tvCodeConversion" />
-
-    <TextView
-        android:id="@+id/tvDateLatestUpdate"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/ltima_atualiza_o"
-        app:layout_constraintStart_toStartOf="@+id/tvValue"
-        app:layout_constraintTop_toBottomOf="@+id/tvValue" />
-
-    <TextView
-        android:id="@+id/tvDateNextUpdate"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/pr_xima_atualiza_o"
-        app:layout_constraintStart_toStartOf="@+id/tvDateLatestUpdate"
-        app:layout_constraintTop_toBottomOf="@+id/tvDateLatestUpdate" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
